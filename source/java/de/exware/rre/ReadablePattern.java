@@ -1,7 +1,10 @@
 package de.exware.rre;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,6 +51,7 @@ public class ReadablePattern
         StringBuilder remaining;
         StringBuilder readableRegex = new StringBuilder();
         int flags = Pattern.MULTILINE;
+        private static Map<String, String> translation;
         
         /**
          * Creates a new empty Builder.
@@ -83,6 +87,15 @@ public class ReadablePattern
             int i = token.indexOf('(');
             int ei = token.lastIndexOf(')');
             String param = token.substring(i+1, ei);
+            if(translation != null)
+            {
+                String command = token.substring(i);
+                String ncommand = translation.get(command);
+                if(ncommand != null)
+                {
+                    token = ncommand + "(";
+                }
+            }
             if(token.startsWith("add("))
             {
                 param = removeParagraph(param);
@@ -307,6 +320,34 @@ public class ReadablePattern
             _add("," +to);
             _add("}");
             return this;
+        }
+        
+        /**
+         * Adds some language specific key Words to the Parser. All of the defaults will work like before.
+         * @param langMappings Each pair consists of the language specific command and the original command.
+         * For example for german there may be an entry "einsVon" - "oneOf". So you could write einsVon(a,b,c)
+         */
+        public static void addLanguage(Map<String, String> langMappings)
+        {
+            if(translation == null)
+            {
+                translation = new HashMap<>();
+            }
+            translation.putAll(langMappings);
+        }
+        
+        /**
+         * Adds some language specific key Words to the Parser. All of the defaults will work like before.
+         * @param langMappings Each pair consists of the language specific command and the original command.
+         * For example for german there may be an entry "einsVon" - "oneOf". So you could write einsVon(a,b,c)
+         */
+        public static void addLanguage(Properties langMappings)
+        {
+            if(translation == null)
+            {
+                translation = new HashMap<>();
+            }
+            translation.putAll(new HashMap(langMappings));
         }
         
         /**
@@ -938,6 +979,19 @@ public class ReadablePattern
     
     public static void main(String[] args)
     {
+        Map<String,String> langMappings = new HashMap<>();
+        langMappings.put("einVon", "oneOf");
+        langMappings.put("einOderMehr", "oneOrMore");
+        langMappings.put("anzahl", "count");
+        langMappings.put("bereich", "range");
+        langMappings.put("ziffer", "digit");
+        langMappings.put("zeilenumbruch", "lineBreak");
+        langMappings.put("zeilenende", "endOfLine");
+        langMappings.put("zeilenanfang", "startOfLine");
+        langMappings.put("auswaehlen", "capture");
+        langMappings.put("auswaehlenEnde", "captureEnd");
+        Builder.addLanguage(langMappings);
+        
         String testString = "aaa XXXbd0\t\r\n";
         //Parse from Text
         ReadablePattern pat = ReadablePattern.compile("startOfLine()"
@@ -947,7 +1001,7 @@ public class ReadablePattern
             + ".add(' ')"
             + ".add('X')"
             + ".oneOrMore()"
-            + ".capture()"
+            + ".auswaehlen()"
             + ".oneOf(a,b,c,'d')"
             + ".count(2)"
             + ".captureEnd()"
