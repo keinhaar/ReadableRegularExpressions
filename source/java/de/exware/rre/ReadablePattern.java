@@ -1,5 +1,7 @@
 package de.exware.rre;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,6 +62,7 @@ public class ReadablePattern
          */
         public Builder(String readableRegExp)
         {
+            readableRegExp = readableRegExp.replaceAll("(?s)\\)[ \\r\\n\\t]+\\.", ")."); //replace whitespace between methods.
             remaining = new StringBuilder(readableRegExp);
             String token = nextToken();
             while(token != null)
@@ -216,7 +219,7 @@ public class ReadablePattern
          */
         private void handleCount(String param)
         {
-            String[] parts = param.split(",");
+            String[] parts = splitParameter(param);
             int[] iparts = new int[parts.length];
             for(int i=0;i<parts.length;i++)
             {
@@ -242,12 +245,36 @@ public class ReadablePattern
          */
         private void handleOneOf(String param)
         {
-            String[] parts = param.split(",");
+            String[] parts = splitParameter(param);
             for(int i=0;i<parts.length;i++)
             {
                 parts[i] = removeParagraph(parts[i]);
             }
             oneOf(parts);
+        }
+        
+        private String[] splitParameter(String param)
+        {
+            List<String> parts = new ArrayList<>();
+            int is = 0;
+            boolean escaped = false;
+            boolean quoted = false;
+            for(int i=0;i<param.length();i++)
+            {
+                char c = param.charAt(i);
+                if((c == ',' && quoted == false && escaped == false))
+                {
+                    parts.add(param.substring(is, i));
+                    is = i+1;
+                }
+                if((c == '\'' || c == '"'))
+                {
+                    quoted = quoted == false;
+                }
+                escaped = c == '\\';
+            }
+            parts.add(param.substring(is));
+            return parts.toArray(new String[parts.size()]);
         }
         
         /**
@@ -256,7 +283,7 @@ public class ReadablePattern
          */
         private void handleRange(String param)
         {
-            String[] parts = param.split(",");
+            String[] parts = splitParameter(param);
             char[] cparts = new char[parts.length];
             for(int i=0;i<parts.length;i++)
             {
@@ -812,11 +839,11 @@ public class ReadablePattern
         private String nextToken()
         {
             String token = null;
-            int index = remaining.indexOf(".");  
+            int index = remaining.indexOf(").");  
             if(index > 0)
             {
-                token = remaining.substring(0, index).trim();
-                remaining.delete(0, index+1);
+                token = remaining.substring(0, index+1).trim();
+                remaining.delete(0, index+2);
             }
             else if(remaining.length() > 0)
             {
@@ -915,7 +942,7 @@ public class ReadablePattern
         //Parse from Text
         ReadablePattern pat = ReadablePattern.compile("startOfLine()"
             + ".add(a)" //dont need quotation if there is no space at beginning or end.
-            + ".add('a')"
+            + "   \r\n   .add('a')"
             + ".add(\"a\")"
             + ".add(' ')"
             + ".add('X')"
@@ -976,5 +1003,6 @@ public class ReadablePattern
             .build();
         System.out.println(pattern.matches("bxyz"));
         System.out.println(pattern);
+        
     }
 }
