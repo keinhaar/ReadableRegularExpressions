@@ -52,6 +52,7 @@ public class ReadablePattern
         StringBuilder readableRegex = new StringBuilder();
         int flags = Pattern.MULTILINE;
         private static Map<String, String> translation;
+        private boolean treatUnknownTokenAsRegex;
         
         /**
          * Creates a new empty Builder.
@@ -66,12 +67,36 @@ public class ReadablePattern
          */
         public Builder(String readableRegExp)
         {
+            this(readableRegExp, false);
+        }
+        
+        /**
+         * Create a new Builder which parses the Expression from Text.
+         * @param readableRegExp the textual representation of the expression.
+         */
+        public Builder(String readableRegExp, boolean treatUnknownTokenAsRegex)
+        {
+            this.treatUnknownTokenAsRegex = treatUnknownTokenAsRegex;
             readableRegExp = readableRegExp.replaceAll("(?s)\\)[ \\r\\n\\t]+\\.", ")."); //replace whitespace between methods.
             remaining = new StringBuilder(readableRegExp);
             String token = nextToken();
             while(token != null)
             {
-                handleToken(token);
+                try
+                {
+                    handleToken(token);
+                }
+                catch(IllegalArgumentException ex)
+                {
+                    if(treatUnknownTokenAsRegex)
+                    {
+                        addRegEx(token);
+                    }
+                    else
+                    {
+                        addGroup(token);
+                    }
+                }
                 token = nextToken();
             }
         }
@@ -85,11 +110,15 @@ public class ReadablePattern
         private void handleToken(String token)
         {
             int i = token.indexOf('(');
-            int ei = token.lastIndexOf(')');
+            if(i<0)
+            {
+                throw new IllegalArgumentException("There's no command found");
+            }
+            int ei = token.lastIndexOf(')');            
             String param = token.substring(i+1, ei);
             if(translation != null)
             {
-                String command = token.substring(i);
+                String command = token.substring(0, i);
                 String ncommand = translation.get(command);
                 if(ncommand != null)
                 {
@@ -100,6 +129,11 @@ public class ReadablePattern
             {
                 param = removeParagraph(param);
                 add(param);
+            }
+            else if(token.startsWith("addGroup("))
+            {
+                param = removeParagraph(param);
+                addGroup(param);
             }
             else if(token.startsWith("addRegEx("))
             {
@@ -428,6 +462,24 @@ public class ReadablePattern
         }
         
         /**
+         * Add some text to the Expression. The entire text will be encapsulated by a non capturing group.
+         * This makes it easier to write something like group().add('ABC').count(5).groupEnd(), which can be replaced by
+         * addGroup('ABC').count(5).
+         * Non word characters will be escaped with double slashes.
+         * @param text
+         * @return
+         */
+        public Builder addGroup(String text)
+        {
+            addRRE(".addGroup(", text);
+            text = text.replaceAll("\\W", "\\\\$0");
+            _add("(?:");
+            _add(text);
+            _add(")");
+            return this;
+        }
+        
+        /**
          * Convinient Method for a character. Same as
          * add(String.valueOf(text))
          * @param text
@@ -703,7 +755,7 @@ public class ReadablePattern
         {
             groupCount++;
             _appendRRE(".group()");
-            _add("(");
+            _add("(?:");
             return this;
         }
         
@@ -880,11 +932,11 @@ public class ReadablePattern
         private String nextToken()
         {
             String token = null;
-            int index = remaining.indexOf(").");  
+            int index = remaining.indexOf(".");  
             if(index > 0)
             {
-                token = remaining.substring(0, index+1).trim();
-                remaining.delete(0, index+2);
+                token = remaining.substring(0, index).trim();
+                remaining.delete(0, index+1);
             }
             else if(remaining.length() > 0)
             {
@@ -935,10 +987,23 @@ public class ReadablePattern
      * add("ABC").
      * @return
      */
+    public static ReadablePattern compile(String readableRegex, boolean treatUnknownTokenAsRegex)
+    {
+        Builder builder = new Builder(readableRegex, treatUnknownTokenAsRegex);
+        return builder.build();
+    }
+    
+    /**
+     * Create a ReadablePattern from Text representation.
+     * @param readableRegex Can contain all the public method calls that are valid on
+     * the Builder Object, except the builder() method. To make Expressions even easier, you 
+     * won't need to quote parameters in most cases. So add(ABC) would be the same as add('ABC') or 
+     * add("ABC").
+     * @return
+     */
     public static ReadablePattern compile(String readableRegex)
     {
-        Builder builder = new Builder(readableRegex);
-        return builder.build();
+        return compile(readableRegex, false);
     }
 
     /**
@@ -991,6 +1056,10 @@ public class ReadablePattern
         langMappings.put("auswaehlen", "capture");
         langMappings.put("auswaehlenEnde", "captureEnd");
         Builder.addLanguage(langMappings);
+        
+        ReadablePattern pat2 = ReadablePattern.compile("abc[0-9].add('x')", true);
+        System.out.println(pat2);
+        
         
         String testString = "aaa XXXbd0\t\r\n";
         //Parse from Text
