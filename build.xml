@@ -1,0 +1,5 @@
+<project name="de.exware.rre" default="build">
+	<description>The de.exware.rre Build File</description>
+
+	<import file="base_build.xml"/>    
+</project>

@@ -27,7 +27,10 @@ import java.util.regex.Pattern;
  */
 public class ReadablePattern
 {
+    public static final String DOT_CHARACTER = "\\.";
+    public static final String TAB_CHARACTER = "\\t";
     public static final String WORD_CHARACTER = "\\w";
+    public static final String WHITESPACE_CHARACTER = "\\s";
     public static final String NON_WORD_CHARACTER = "\\W";
     public static final String DIGIT = "\\d";
     public static final String NON_DIGIT = "\\D";
@@ -200,6 +203,14 @@ public class ReadablePattern
             {
                 tab();
             }
+            else if(token.startsWith("dot("))
+            {
+                dot();
+            }
+            else if(token.startsWith("whitespace("))
+            {
+                whitespace();
+            }
             else if(token.startsWith("capture("))
             {
                 capture();
@@ -227,6 +238,10 @@ public class ReadablePattern
             else if(token.startsWith("singleLine("))
             {
                 singleLine();
+            }
+            else if(token.startsWith("date("))
+            {
+                date();
             }
             else
             {
@@ -437,6 +452,18 @@ public class ReadablePattern
         }
         
         /**
+         * Matches anything that looks like an Date. This may be written yyyy-mm-dd or dd.mm.yyyy or dd/mm/yyyy 
+         * and must be enclosed by whitespace characters. For example it will match ' 31/12/2020 ' but not ' 31/12/2020x'
+         * @return
+         */
+        public Builder date()
+        {
+            _appendRRE(".date()");
+            _add("(?:(?:\\s\\d{4}\\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9]\\s)|(?:\\s[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\\d{4}\\s)|(?:\\s[0-3]{0,1}[0-9]\\.[01]{0,1}[0-9]\\.\\d{4}\\s))");
+            return this;
+        }
+        
+        /**
          * add the regex as it is. 
          * @param plainRegEx the Expression like it would be used in Pattern.compile()
          */
@@ -497,18 +524,10 @@ public class ReadablePattern
          */
         private void addRRE(String command, String text)
         {
-            boolean whiteSpace = text.startsWith(" ")
-                || text.endsWith(" ");
             _appendRRE(command);
-            if(whiteSpace)
-            {
-                _appendRRE('\'');
-            }
+            _appendRRE('\'');
             _appendRRE(text);
-            if(whiteSpace)
-            {
-                _appendRRE('\'');
-            }
+            _appendRRE('\'');
             _appendRRE(")");
         }
         
@@ -591,7 +610,27 @@ public class ReadablePattern
         public Builder tab()
         {
             _appendRRE(".tab()");
-            _add("\\t");
+            _add(TAB_CHARACTER);
+            return this;
+        }
+        
+        /**
+         * Match a Dot Character
+         */
+        public Builder dot()
+        {
+            _appendRRE(".dot()");
+            _add(DOT_CHARACTER);
+            return this;
+        }
+        
+        /**
+         * Match a Whitespace Character like SPACE, TAB, Carriage Return, Linebreak.
+         */
+        public Builder whitespace()
+        {
+            _appendRRE(".whitespace()");
+            _add(DOT_CHARACTER);
             return this;
         }
         
@@ -932,11 +971,30 @@ public class ReadablePattern
         private String nextToken()
         {
             String token = null;
-            int index = remaining.indexOf(".");  
+            int index = remaining.indexOf(".");
             if(index > 0)
             {
-                token = remaining.substring(0, index).trim();
-                remaining.delete(0, index+1);
+              //add('abc(.)').count(2).def.count(2).erttt
+                int ind2 = remaining.lastIndexOf("(", index+1);
+                if(ind2 > 0 && remaining.charAt(index-1) != ')')
+                {
+                    index = remaining.indexOf(".",  index+1);
+                    if(index >= 0)
+                    {
+                        token = remaining.substring(0, index).trim();
+                        remaining.delete(0, index+1);
+                    }
+                    else if(remaining.length() > 0)
+                    {
+                        token = remaining.toString().trim();
+                        remaining.setLength(0);
+                    }
+                }
+                else
+                {
+                    token = remaining.substring(0, index).trim();
+                    remaining.delete(0, index+1);
+                }
             }
             else if(remaining.length() > 0)
             {
@@ -1057,8 +1115,11 @@ public class ReadablePattern
         langMappings.put("auswaehlenEnde", "captureEnd");
         Builder.addLanguage(langMappings);
         
-        ReadablePattern pat2 = ReadablePattern.compile("abc[0-9].add('x')", true);
+        ReadablePattern pat2 = ReadablePattern.compile("date()", false);
+        Matcher matcher2 = pat2.matcher("Hallo Welt 31.12.2020\r\n");
+        System.out.println(matcher2.find());
         System.out.println(pat2);
+        
         
         
         String testString = "aaa XXXbd0\t\r\n";

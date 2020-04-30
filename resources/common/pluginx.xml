@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin
+    id="de.exware.rre"
+    name="Readable Regular Expressions"
+    version="${VERSION}"
+    provider-name="Martin Schmitz"
+    >
+    <classpath>
+    	<pathelement value="."></pathelement>
+    	<pathelement value="de.exware.rre.jar"></pathelement>
+    </classpath>
+</plugin>

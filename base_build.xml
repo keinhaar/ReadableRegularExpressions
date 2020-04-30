@@ -1,0 +1,795 @@
+<project name="base_generic" default="build">
+    <description>A generic base for build files.
+   </description>
+
+    <property name="base_build.version" value="1.8.2" />
+    <property file="ant.properties" />
+    <property name="izpackbasedir" value="${user.home}/IzPack" />
+    <property name="make-jar-dir" value="${tmp.dir}/make-jar" />
+
+    <!-- 
+      Loads a precompiled module from the remote repository and stores it on the local
+      repository.
+   -->
+    <macrodef name="download-module">
+        <attribute name="module-name" />
+        <attribute name="module-version" />
+        <sequential>
+            <echo message="Downloading @{module-name}" />
+            <exec executable="${svn-executable}" dir="${local-repository}">
+                <arg value="update" />
+                <arg value="-N" />
+                <arg value="${remote-repository}/@{module-name}" />
+                <arg value="@{module-name}" />
+            </exec>
+            <exec executable="${svn-executable}" dir="${local-repository}">
+                <arg value="update" />
+                <arg value="${remote-repository}/@{module-name}/@{module-version}" />
+                <arg value="@{module-name}/@{module-version}" />
+            </exec>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="copy-modules">
+        <attribute name="module-list" />
+        <attribute name="target-dir" />
+        <attribute name="create-module-folders" />
+        <sequential>
+            <mkdir dir="@{target-dir}" />
+            <for list="@{module-list}" param="module">
+                <sequential>
+                    <var name="module-version" unset="true" />
+                    <if>
+                        <isset property="module-@{module}-version" />
+                        <then>
+                            <propertycopy name="module-version" from="module-@{module}-version" />
+                        </then>
+                        <else>
+                            <propertycopy name="module-version" from="packedmodule-@{module}-version" />
+                        </else>
+                    </if>
+                    <echo message="Copy resources of module @{module} in version: '${module-version}'" />
+                    <if>
+                        <equals arg1="@{create-module-folders}" arg2="true" />
+                        <then>
+                            <var name="destination-dir" value="@{target-dir}/@{module}_${module-version}" />
+                        </then>
+                        <else>
+                            <var name="destination-dir" value="@{target-dir}" />
+                        </else>
+                    </if>
+                    <if>
+                        <isset property="module-version" />
+                        <then>
+                            <echo>Copy resources from Version ${module-version} of the module</echo>
+                            <mkdir dir="${destination-dir}" />
+                            <copy todir="${destination-dir}">
+                                <fileset dir="${local-repository}/@{module}/${module-version}">
+                                    <include name="**" />
+                                    <exclude name="**/.svn" />
+                                </fileset>
+                            </copy>
+                        </then>
+                        <else>
+                            <echo>Copy resources from HEAD of the module</echo>
+                            <copy todir="${destination-dir}">
+                                <fileset dir="../@{module}/out">
+                                    <include name="**" />
+                                    <exclude name="**/*.java" />
+                                    <exclude name="**/.svn" />
+                                    <exclude name="**/CVS" />
+                                </fileset>
+                            </copy>
+                        </else>
+                    </if>
+                </sequential>
+            </for>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="writeVersion" description="Writes the Version number to the version.txt. This will mark
+        the current build as succesful. If overridden, this should be the last call in local-repo and dist.">
+        <sequential>
+            <if>
+                <isset property="notUpToDate" />
+                <then>
+                    <echo file="version.txt" message="${VERSION}" />
+                </then>
+            </if>
+        </sequential>
+    </macrodef>
+
+    <target name="__init" depends="-checkNotUpToDate,-antContrib,-downloadAntContrib,-setAntContrib" if="notUpToDate">
+        <description>
+         Initializes the the build environment by setting up the classpath and by downloading
+         the required modules.
+      </description>
+        <property name="jdk.home" value="${java.home}/.." />
+        <propertyselector property="unpacked-modules" delimiter="," match="^module-(.*)-version" select="\1" casesensitive="false" />
+        <propertyselector property="packed-modules" delimiter="," match="packedmodule-(.*)-version" select="\1" casesensitive="false" />
+        <if>
+            <equals arg1="#TEMPLATE#" arg2="${projectname}" />
+            <then>
+                <var name="projectname" unset="true" />
+                <basename file="${basedir}" property="projectname" />
+                <echo message="You are running this script for the first time. We will now set the projectname to the directory name: ${projectname}" />
+                <replace dir=".">
+                    <include name="ant.properties" />
+                    <include name="build.xml" />
+                    <replacefilter token="#TEMPLATE#" value="${projectname}" />
+                </replace>
+                <echo message="Build file initialization successful. Please re-run your target." />
+                <echo />
+            </then>
+        </if>
+        <if>
+            <not>
+                <available file="version.txt" />
+            </not>
+            <then>
+                <touch file="version.txt" />
+            </then>
+        </if>
+        <if>
+            <not>
+                <available file="${local-repository}/proguard/3.5/proguard.jar" />
+            </not>
+            <then>
+                <download-module module-name="proguard" module-version="3.5" />
+            </then>
+        </if>
+        <loadfile property="filecontent" srcfile="version.txt">
+        </loadfile>
+        <echo>Old '${projectname}' Version is: ${filecontent}</echo>
+        <exec failonerror="false" resultproperty="versionIsInRemoteRepo" executable="${svn-executable}" dir="${local-repository}/">
+            <arg value="list" />
+            <arg value="${remote-repository}/${projectname}/${filecontent}" />
+        </exec>
+        <if>
+            <equals arg1="0" arg2="${versionIsInRemoteRepo}" />
+            <then>
+                <input defaultvalue="${filecontent}" message="Please enter the Version number for this build of ${projectname} (Last Version was: ${filecontent}). The version number should be changed on any build, that you will distribute to the remote repository:" addproperty="VERSION">
+                </input>
+            </then>
+            <else>
+                <property name="VERSION" value="${filecontent}" />
+            </else>
+        </if>
+        <echo>New '${projectname}' Version is: ${VERSION}</echo>
+        <var name="tmp.classpath" value="" />
+        <if>
+            <isset property="unpacked-modules-${system-environment}" />
+            <then>
+                <propertycopy name="environment-modules" from="unpacked-modules-${system-environment}" />
+                <var name="tmp" value="${unpacked-modules}" />
+                <var name="unpacked-modules" unset="true" />
+                <var name="unpacked-modules" value="${tmp},${environment-modules}" />
+            </then>
+        </if>
+        <if>
+            <isset property="packed-modules" />
+            <then>
+                <var name="required-modules" value="${packed-modules}" />
+            </then>
+        </if>
+        <if>
+            <isset property="unpacked-modules" />
+            <then>
+                <echo message="${required-modules}" />
+                <if>
+                    <isset property="required-modules" />
+                    <then>
+                        <var name="required-modules" value="${required-modules},${unpacked-modules}" />
+                    </then>
+                    <else>
+                        <var name="required-modules" value="${unpacked-modules}" />
+                    </else>
+                </if>
+            </then>
+        </if>
+        <if>
+            <isset property="required-modules" />
+            <then>
+                <for list="${required-modules}" param="module">
+                    <sequential>
+                        <if>
+                            <isset property="module-@{module}-version" />
+                            <then>
+                                <propertycopy name="module-version" from="module-@{module}-version" />
+                            </then>
+                            <else>
+                                <propertycopy name="module-version" from="packedmodule-@{module}-version" />
+                            </else>
+                        </if>
+                        <if>
+                            <not>
+                                <available file="${local-repository}/@{module}/${module-version}" />
+                            </not>
+                            <then>
+                                <echo message="module does not exist in local repo. will download." />
+                                <download-module module-name="@{module}" module-version="${module-version}" />
+                            </then>
+                        </if>
+                        <for param="file">
+                            <path>
+                                <fileset dir="${local-repository}">
+                                    <include name="@{module}/${module-version}/**/*.jar" />
+                                </fileset>
+                            </path>
+                            <sequential>
+                                <var name="tmp.classpath" value="${tmp.classpath}:@{file}" />
+                            </sequential>
+                        </for>
+                        <var name="module-version" unset="true" />
+                    </sequential>
+                </for>
+            </then>
+        </if>
+        <for param="file">
+            <path>
+                <fileset dir="${basedir}">
+                    <include name="**/*.jar" />
+                </fileset>
+            </path>
+            <sequential>
+                <var name="tmp.classpath" value="${tmp.classpath}:@{file}" />
+            </sequential>
+        </for>
+        <echo message="compile classpath: ${tmp.classpath}" />
+        <path id="compile.classpath">
+            <path path="${tmp.classpath}" />
+            <fileset dir="${resource.dir}/common">
+                <include name="**/*.jar" />
+            </fileset>
+        </path>
+        <mkdir dir="${resource.dir}/common" />
+    </target>
+
+    <target name="__makros">
+    </target>
+
+    <target name="-init" depends="__init">
+    </target>
+
+    <target name="clean" depends="-base-clean">
+        <echo message="" />
+    </target>
+
+    <target name="-base-clean">
+        <delete dir="out" />
+        <delete dir="${distribution.dir}" />
+        <delete dir="${tmp.dir}" />
+        <delete dir="${generated.dir}" />
+        <delete dir="update-site"/>
+    </target>
+
+    <target name="obfuscate" depends="-base-obfuscate" />
+
+    <!-- use this if proguard is used for obfuscation 
+   <target name="-base-obfuscate" depends="build,-make-libs-jar">
+   -->
+    <target name="-base-obfuscate" depends="build" if="notUpToDate">
+        <description>create an obfuscated version of the module</description>
+        <if>
+            <available file="${src.dir}/obfuscator/proguard.pro" />
+            <then>
+                <taskdef resource="proguard/ant/task.properties" classpath="${local-repository}/proguard/3.5/proguard.jar" />
+                <copy file="${src.dir}/obfuscator/proguard.pro" tofile="${tmp.dir}/proguard.pro" />
+                <replace file="${tmp.dir}/proguard.pro">
+                    <replacefilter token="$JAR_FILE" value="${projectname}.jar" />
+                    <replacefilter token="$OUT_FILE" value="${projectname}.obfuscated.jar" />
+                    <replacefilter token="$RT_JAR" value="${java.home}/lib/rt.jar" />
+                    <replacefilter token="$LIBS_JAR" value="libs.jar" />
+                </replace>
+                <jar destfile="${tmp.dir}/${projectname}.jar">
+                    <fileset dir="out">
+                        <include name="**/*.class" />
+                    </fileset>
+                </jar>
+                <proguard configuration="${tmp.dir}/proguard.pro" />
+                <delete file="${tmp.dir}/proguard.pro" />
+                <delete>
+                    <fileset dir="out">
+                        <include name="**/*.class" />
+                    </fileset>
+                </delete>
+                <unjar dest="out" src="${tmp.dir}/${projectname}.obfuscated.jar" />
+            </then>
+        </if>
+    </target>
+
+    <target name="local-repo" depends="-base-local-repo">
+        <writeVersion />
+    </target>
+
+    <target name="-base-local-repo" depends="-checkNotUpToDate,clean,build,obfuscate,make-jar" if="notUpToDate">
+        <description>Builds a module and moves it into the local repository.</description>
+        <exec failonerror="false" executable="${svn-executable}" dir="${local-repository}">
+            <arg value="update" />
+            <arg value="-N" />
+            <arg value="${projectname}" />
+        </exec>
+        <delete dir="${local-repository}/${projectname}/${VERSION}" />
+        <mkdir dir="${local-repository}/${projectname}/${VERSION}" />
+        <copy includeemptydirs="false" todir="${local-repository}/${projectname}/${VERSION}">
+            <fileset dir="${make-jar-dir}">
+                <include name="**" />
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="make-jar" depends="-base-make-jar" />
+
+    <target name="-base-make-jar" depends="build" if="notUpToDate">
+        <description>
+         if the property "make-jar" is set to true, this task puts all class files into a jar
+         file named like the projectname. otherwise the out directory will simply be copied.
+      </description>
+        <mkdir dir="${make-jar-dir}" />
+        <copy includeemptydirs="false" todir="out">
+            <fileset dir=".">
+                <include name="version.txt" />
+            </fileset>
+        </copy>
+        <if>
+            <equals arg1="${make-jar}" arg2="true" />
+            <then>
+                <copy includeemptydirs="false" todir="${make-jar-dir}">
+                    <fileset dir="out">
+                        <include name="**" />
+                        <exclude name="**/*.class" />
+                    </fileset>
+                </copy>
+                <if>
+                    <isset property="manifest" />
+                    <then>
+                        <jar destfile="${make-jar-dir}/${projectname}.jar" manifest="${manifest}">
+                            <fileset dir="out">
+                                <include name="**/*.class" />
+                                <include name="version.txt" />
+                            </fileset>
+                        </jar>
+                    </then>
+                    <else>
+                        <jar destfile="${make-jar-dir}/${projectname}.jar">
+                            <fileset dir="out">
+                                <include name="**/*.class" />
+                                <include name="version.txt" />
+                            </fileset>
+                        </jar>
+                    </else>
+                </if>
+            </then>
+            <else>
+                <copy includeemptydirs="false" todir="${make-jar-dir}">
+                    <fileset dir="out">
+                        <include name="**" />
+                    </fileset>
+                </copy>
+                <copy includeemptydirs="false" todir="${make-jar-dir}">
+                    <fileset dir=".">
+                        <include name="${manifest}" />
+                    </fileset>
+                </copy>
+            </else>
+        </if>
+    </target>
+
+    <target name="dist" depends="-base-dist">
+        <writeVersion />
+    </target>
+
+    <target name="-base-dist" depends="-forceBuild,clean,build,obfuscate,make-jar">
+        <description>Builds the application in the dist folder
+      </description>
+        <mkdir dir="${distribution.dir}" />
+        <copy includeemptydirs="false" todir="${distribution.dir}">
+            <fileset dir="${make-jar-dir}">
+                <include name="**" />
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="-forceBuild">
+        <property name="notUpToDate" value="true">
+        </property>
+    </target>
+
+    <target name="build" depends="-init,-base-build">
+        <echo message="default build" />
+    </target>
+
+    <target name="update-site" depends="-base-update-site">
+        <echo message="update-site" />
+    </target>
+
+    <target name="-base-update-site" depends="dist">
+        <delete dir="update-site"/>
+        <mkdir dir="update-site" />
+        <java classname="de.exware.update.SiteTool" fork="true" jvmargs="-version"/>
+        <java classname="de.exware.update.SiteTool" fork="true" args="${distribution.dir} update-site ${tmp.dir}">
+            <classpath refid="compile.classpath">
+            </classpath>
+            <classpath path="out" />
+        </java>
+    </target>
+
+    <target name="full-rebuild" depends="-forceBuild,-init">
+        <description>This will do a full rebuild of all locally available plugins and finally calls dist target</description>
+        <property name="upToDate" value="false"/>
+        <for list="${required-modules}" param="module">
+            <sequential>
+                <if>
+                    <available file="../@{module}" />
+                    <then>
+                        <exec command="ant local-repo" dir="../@{module}" />
+                    </then>
+                </if>
+            </sequential>
+        </for>
+        <antcall target="dist">
+        </antcall>
+    </target>
+
+    <target name="javadoc" depends="-init">
+        <javadoc charset="utf-8" destdir="javadoc" sourcepath="source/java">
+        </javadoc>
+    </target>
+
+    <target name="-private-base-build" depends="-init" if="notUpToDate">
+        <mkdir dir="out" />
+        <echo message="Compiling Java Sources in ${java.src.dir}" />
+        <if>
+            <available file="${java.src.dir}" />
+            <then>
+                <javac target="${java-source-version}" source="${java-source-version}" debug="true" destdir="out" encoding="UTF-8">
+                    <src>
+                        <pathelement path="${java.src.dir}" />
+                    </src>
+                    <classpath refid="compile.classpath" />
+                </javac>
+            </then>
+        </if>
+        <copy todir="out">
+            <fileset dir="${resource.dir}/common">
+                <include name="**" />
+                <exclude name="**/.svn" />
+            </fileset>
+        </copy>
+        <copy todir="out" failonerror="false" overwrite="true">
+            <fileset dir="${resource.dir}/${system-environment}">
+                <include name="**" />
+                <exclude name="**/.svn" />
+            </fileset>
+        </copy>
+        <if>
+            <equals arg1="${is-eclipse-plugin}" arg2="true" />
+            <then>
+                <replaceregexp file="META-INF/MANIFEST.MF" match="Bundle-Version: [0-9]+\.[0-9]+\.[0-9]+" replace="Bundle-Version: ${VERSION}" />
+                <copy todir="out">
+                    <fileset dir=".">
+                        <include name="plugin.xml" />
+                        <include name="plugin*.properties" />
+                        <include name="META-INF/MANIFEST.MF" />
+                    </fileset>
+                </copy>
+            </then>
+        </if>
+        <if>
+            <available file="out/plugin.xml" />
+            <then>
+                <replace file="out/plugin.xml">
+                    <replacefilter token="$${VERSION}" value="${VERSION}" />
+                </replace>
+            </then>
+        </if>
+        <if>
+            <available file="out/pluginx.xml" />
+            <then>
+                <replace file="out/pluginx.xml">
+                    <replacefilter token="$${VERSION}" value="${VERSION}" />
+                </replace>
+            </then>
+        </if>
+    </target>
+
+    <target name="-base-build" depends="-private-base-build" if="notUpToDate">
+        <description>Compiles all sources, and moves the resources to the output folder.
+        </description>
+    </target>
+
+    <target name="-make-libs-jar" depends="-init">
+        <description>Creates one large jar file of all required libraries in other modules.
+      </description>
+        <for list="${required-modules}" param="module">
+            <sequential>
+                <if>
+                    <isset property="module-@{module}-version" />
+                    <then>
+                        <propertycopy name="module-version" from="module-@{module}-version" />
+                        <if>
+                            <not>
+                                <available file="${local-repository}/@{module}/${module-version}" />
+                            </not>
+                            <then>
+                                <echo message="module does not exist in local repo. will download." />
+                                <download-module module-name="@{module}" module-version="${module-version}" />
+                            </then>
+                        </if>
+                        <for param="file">
+                            <path>
+                                <fileset dir="${local-repository}">
+                                    <include name="@{module}/${module-version}/*.jar" />
+                                </fileset>
+                            </path>
+                            <sequential>
+                                <mkdir dir="${tmp.dir}/libs" />
+                                <unjar dest="${tmp.dir}/libs" src="@{file}" />
+                            </sequential>
+                        </for>
+                        <var name="module-version" unset="true" />
+                    </then>
+                </if>
+            </sequential>
+        </for>
+        <if>
+            <available file="${tmp.dir}/libs" />
+            <then>
+                <jar destfile="${tmp.dir}/libs.jar">
+                    <fileset dir="${tmp.dir}/libs">
+                        <include name="**" />
+                    </fileset>
+                </jar>
+            </then>
+        </if>
+    </target>
+
+    <target name="installer" depends="-base-installer" />
+
+    <target name="-base-installer" description="Creates a self extracting File with installer." depends="dist">
+        <description>Creates an executable exe file, which contains an installer for the Application</description>
+        <if>
+            <available file="${src.dir}/installer/installer.xml" />
+            <then>
+                <taskdef name="izpack" classpath="${izpackbasedir}/lib/compiler.jar" classname="com.izforge.izpack.ant.IzPackTask" />
+                <if>
+                    <not>
+                        <available file="${local-repository}/jre/${java-runtime-version}" />
+                    </not>
+                    <then>
+                        <download-module module-name="jre" module-version="${java-runtime-version}" />
+                    </then>
+                </if>
+                <echo message="Makes the installer using IzPack" />
+                <copy file="${src.dir}/installer/installer.xml" tofile="${tmp.dir}/installer.xml" overwrite="true" />
+                <replace file="${tmp.dir}/installer.xml" token="__APPVERSION__" value="${projectversion}">
+                </replace>
+                <izpack input="${tmp.dir}/installer.xml" output="${tmp.dir}/${projectname}-install.jar" installerType="standard" basedir="${distribution.dir}" izPackDir="${izpackbasedir}">
+                </izpack>
+                <copy todir="${tmp.dir}" description="Copy Installer Files to ${tmp.dir}">
+                    <fileset dir="${src.dir}/installer">
+                        <include name="launcher.ini" />
+                        <include name="setup.exe" />
+                    </fileset>
+                    <fileset dir="${local-repository}/jre/1.5/">
+                        <include name="jre-1_5.exe" />
+                    </fileset>
+                </copy>
+                <echo file="zipcomment.txt">$AUTORUN$&gt;setup.exe</echo>
+                <!-- TODO: Add an Block for Windows -->
+                <exec os="Linux" executable="bash" failonerror="true" dir="${tmp.dir}">
+                    <arg value="-c" />
+                    <arg value="zip -z ${projectname}_jre.zip launcher.ini jre-1_5.exe setup.exe ${projectname}-install.jar &lt;../zipcomment.txt" />
+                </exec>
+                <exec os="Linux" executable="bash" failonerror="true" dir="${tmp.dir}">
+                    <arg value="-c" />
+                    <arg value="zip -z ${projectname}.zip launcher.ini setup.exe ${projectname}-install.jar &lt;../zipcomment.txt" />
+                </exec>
+                <concat destfile="${distribution.dir}/${projectname}-${VERSION}-install.exe" binary="true">
+                    <path path="${src.dir}/installer/unzipsfx_autorun.exe" />
+                    <path path="${tmp.dir}/${projectname}.zip" />
+                </concat>
+                <concat destfile="${distribution.dir}/${projectname}-${VERSION}_jre-install.exe" binary="true">
+                    <path path="${src.dir}/installer/unzipsfx_autorun.exe" />
+                    <path path="${tmp.dir}/${projectname}_jre.zip" />
+                </concat>
+            </then>
+        </if>
+    </target>
+
+    <target name="spreadBaseBuild" depends="-antContrib,-downloadAntContrib,-setAntContrib">
+        <description>Replaces all base_build.xml files in all subdirectories of the parent folder with
+         this version. this is done for easier distribution of the actual version of this script.
+      </description>
+        <taskdef classpath="${ANT_CONTRIB}" resource="net/sf/antcontrib/antlib.xml" />
+        <for param="file">
+            <path>
+                <fileset dir="..">
+                    <include name="*/base_build.xml" />
+                </fileset>
+            </path>
+            <sequential>
+                <echo message="Replacing base_build.xml file @{file} with this version" />
+                <copy overwrite="true" file="${basedir}/base_build.xml" tofile="@{file}">
+                </copy>
+            </sequential>
+        </for>
+    </target>
+
+    <target name="getVersions" depends="-antContrib,-downloadAntContrib,-setAntContrib">
+        <description>Finds all Version numbers of the currently checked out modules.
+      </description>
+        <taskdef classpath="${ANT_CONTRIB}" resource="net/sf/antcontrib/antlib.xml" />
+        <delete file="${java.io.tmpdir}/versions.txt" />
+        <for param="file">
+            <path>
+                <fileset dir="..">
+                    <include name="*/version.txt" />
+                </fileset>
+            </path>
+            <sequential>
+                <var name="dirname" unset="true" />
+                <var name="modulename" unset="true" />
+                <var name="moduleversion" unset="true" />
+                <loadfile property="moduleversion" srcfile="@{file}" />
+                <dirname file="@{file}" property="dirname" />
+                <basename file="${dirname}" property="modulename" />
+                <echo append="true" file="${java.io.tmpdir}/versions.txt" message="${modulename}: ${moduleversion}${line.separator}" />
+            </sequential>
+        </for>
+        <exec command="notepad.exe ${java.io.tmpdir}/versions.txt">
+        </exec>
+    </target>
+
+    <target name="updateDependencies" depends="-antContrib,-downloadAntContrib,-setAntContrib">
+        <description>Finds the Version numbers of the currently checked out modules. and puts
+         updates the local ant.properties if nessesary.
+      </description>
+        <taskdef classpath="${ANT_CONTRIB}" resource="net/sf/antcontrib/antlib.xml" />
+        <copy file="ant.properties" tofile="ant.properties.tmp" />
+        <for param="file">
+            <path>
+                <fileset dir="..">
+                    <include name="*/version.txt" />
+                </fileset>
+            </path>
+            <sequential>
+                <var name="dirname" unset="true" />
+                <var name="modulename" unset="true" />
+                <var name="moduleversion" unset="true" />
+                <var name="ant.properties.tmp.md5" unset="true" />
+                <loadfile property="moduleversion" srcfile="@{file}" />
+                <dirname file="@{file}" property="dirname" />
+                <basename file="${dirname}" property="modulename" />
+                <replaceregexp file="ant.properties.tmp" match="module-${modulename}-version=.*" replace="module-${modulename}-version=${moduleversion}">
+                </replaceregexp>
+            </sequential>
+        </for>
+        <checksum file="ant.properties.tmp" property="ant.properties.tmp.md5" />
+        <if>
+            <not>
+                <filesmatch file1="ant.properties" file2="ant.properties.tmp" />
+            </not>
+            <then>
+                <copy file="ant.properties.tmp" tofile="ant.properties" />
+            </then>
+        </if>
+        <delete file="ant.properties.tmp" />
+    </target>
+
+    <!-- Some ugly targets below to get the required ant-contrib.jar -->
+    <target name="-antContrib" depends="-checkAntContrib" unless="ANT_CONTRIB">
+        <input defaultvalue="y" addproperty="ANT_CONTRIB_IN" message="Required library 'ant-contrib.jar' could not be found. Please enter the Path to your ant-contrib.jar, or enter 'y' to download from repository?" />
+        <condition property="GET_ANT_CONTRIB">
+            <equals arg1="${ANT_CONTRIB_IN}" arg2="y" />
+        </condition>
+        <echo message="${ANT_CONTRIB_IN}" />
+    </target>
+
+    <target name="-checkAntContrib">
+        <available file="${ant.library.dir}/ant-contrib.jar" property="ANT_CONTRIB" value="${ant.library.dir}/ant-contrib.jar">
+        </available>
+        <available file="${local-repository}/ant-contrib/1.0b3/ant-contrib.jar" property="ANT_CONTRIB" value="${local-repository}/ant-contrib/1.0b3/ant-contrib.jar">
+        </available>
+    </target>
+
+    <target name="-downloadAntContrib" if="GET_ANT_CONTRIB">
+        <download-module module-name="ant-contrib" module-version="1.0b3" />
+        <property name="ANT_CONTRIB" value="${local-repository}/ant-contrib/1.0b3/ant-contrib.jar">
+        </property>
+    </target>
+
+    <target name="-setAntContrib" unless="GET_ANT_CONTRIB">
+        <property name="ANT_CONTRIB" value="${ANT_CONTRIB_IN}">
+        </property>
+        <taskdef classpath="${ANT_CONTRIB}" resource="net/sf/antcontrib/antlib.xml" />
+    </target>
+
+    <target name="getUpToDateInfos" depends="-antContrib,-downloadAntContrib,-setAntContrib">
+        <description>Check all projects to see which are uptodate
+      </description>
+        <taskdef classpath="${ANT_CONTRIB}" resource="net/sf/antcontrib/antlib.xml" />
+        <delete file="${java.io.tmpdir}/uptodate.txt" />
+        <for param="file">
+            <path>
+                <fileset dir="..">
+                    <include name="*/version.txt" />
+                </fileset>
+            </path>
+            <sequential>
+                <var name="dirname" unset="true" />
+                <dirname file="@{file}" property="dirname" />
+                <exec newenvironment="false" executable="${ant.home}/bin/ant.bat" dir="${dirname}">
+                    <arg value="checkUpToDate" />
+                </exec>
+            </sequential>
+        </for>
+        <exec command="notepad.exe ${java.io.tmpdir}/uptodate.txt">
+        </exec>
+    </target>
+
+    <target name="checkUpToDate" depends="-checkUpToDate">
+        <property name="upToDate" value="false">
+        </property>
+        <echo append="true" file="${java.io.tmpdir}/uptodate.txt" message="Project ${projectname} is up to date: ${upToDate}${line.separator}">
+        </echo>
+        <echo message="Project ${projectname} is up to date: ${upToDate}">
+        </echo>
+    </target>
+
+    <target name="-checkNotUpToDate" depends="-checkUpToDate" unless="upToDate">
+        <property name="notUpToDate" value="true">
+        </property>
+    </target>
+
+    <target name="-checkUpToDate">
+        <uptodate property="upToDate" targetfile="version.txt">
+            <srcfiles dir=".">
+                <include name="ant.properties" />
+                <include name="source/**/*" />
+                <include name="resources/**/*" />
+            </srcfiles>
+        </uptodate>
+    </target>
+
+    <target name="bunzip">
+        <bunzip2 src="${file}" dest=".">
+        </bunzip2>
+    </target>
+	
+	<target name="makeVersion" depends="-forceBuild,local-repo">
+		<antcall target="clean"></antcall>
+        <input defaultvalue="Version ${VERSION}" message="Please enter the commit message for the new Version" addproperty="COMMIT_MESSAGE">
+        </input>
+		<echo>Commit of current changes</echo>
+        <exec executable="${svn-executable}" dir=".">
+            <arg value="commit" />
+            <arg value="-m" />
+            <arg value="${COMMIT_MESSAGE}" />
+        </exec>		
+		<echo>Add repository files</echo>
+        <exec executable="${svn-executable}" dir="${local-repository}/${projectname}">
+            <arg value="add" />
+		    <arg value="--force" />
+            <arg value="${VERSION}" />
+        </exec>
+		<echo>Commit repository files</echo>
+        <exec executable="${svn-executable}" dir="${local-repository}/${projectname}">
+            <arg value="commit" />
+            <arg value="-m" />
+            <arg value="${COMMIT_MESSAGE}" />
+        </exec>
+		<echo>Create Branch of Version ${VERSION}</echo>
+        <exec executable="${svn-executable}" dir=".">
+            <arg value="copy" />
+            <arg value="${svn-repository}/${projectname}/trunk" />
+            <arg value="${svn-repository}/${projectname}/branches/V${VERSION}" />
+            <arg value="-m" />
+            <arg value="Version ${VERSION}" />
+        </exec>
+		<echo>Update Project</echo>
+        <exec executable="${svn-executable}" dir=".">
+            <arg value="update" />
+        </exec>
+	</target>
+</project>
