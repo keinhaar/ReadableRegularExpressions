@@ -26,10 +26,11 @@ The Pattern will be parsed to "xyz" and would match the text "xyz"
 The parsed text can contain any public method call that is in Builder, except the builder() and build() methods. If no special characters are included, the quoting is not nessessary. The example above could be written as "add(xyz)".
 
 You could even mix normal text with method calls. That makes it easy to use for non programmers.
+(Plain Text needs to prefixed with a single dot, except at the beginning of the Pattern)
 
 Here's an example for that:
 <pre>
-    ReadablePattern patttern = ReadablePattern.compile("myexample.add(xyz)extra content");
+    ReadablePattern patttern = ReadablePattern.compile("myexample.add(xyz).extra content");
 </pre>
 
 The Pattern will be parsed to "(?:myexample)xyz(?:extra\ content)" and would match the text "myexamplexyzextra content"
