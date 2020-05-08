@@ -54,8 +54,40 @@ public class ReadablePattern
         StringBuilder remaining;
         StringBuilder readableRegex = new StringBuilder();
         int flags = Pattern.MULTILINE;
-        private static Map<String, String> translation;
+        private static Map<String, String> translation = new HashMap<>();
         private boolean treatUnknownTokenAsRegex;
+        
+        static
+        {
+            translation.put("add", "add");
+            translation.put("addRegEx", "addRegEx");
+            translation.put("addGroup", "addGroup");
+            translation.put("oneOf", "oneOf");
+            translation.put("range", "range");
+            translation.put("count", "count");
+            translation.put("zeroOrMore", "zeroOrMore");
+            translation.put("zeroOrMoreShortest", "zeroOrMoreShortest");
+            translation.put("oneOrMore", "oneOrMore");
+            translation.put("oneOrMoreShortest", "oneOrMoreShortest");
+            translation.put("zeroOrOne", "zeroOrOne");
+            translation.put("lazy", "lazy");
+            translation.put("digit", "digit");
+            translation.put("notDigit", "notDigit");
+            translation.put("alpha", "alpha");
+            translation.put("notAlpha", "notAlpha");
+            translation.put("lineBreak", "lineBreak");
+            translation.put("dot", "dot");
+            translation.put("tab", "tab");
+            translation.put("whitespace", "whitespace");
+            translation.put("capture", "capture");
+            translation.put("captureEnd", "captureEnd");
+            translation.put("anyCharacter", "anyCharacter");
+            translation.put("startOfLine", "startOfLine");
+            translation.put("endOfLine", "endOfLine");
+            translation.put("ignoreCase", "ignoreCase");
+            translation.put("singleLine", "singleLine");
+            translation.put("date", "date");
+        }
         
         /**
          * Creates a new empty Builder.
@@ -974,20 +1006,20 @@ public class ReadablePattern
             int index = remaining.indexOf(".");
             if(index > 0)
             {
-              //add('abc(.)').count(2).def.count(2).erttt
-                int ind2 = remaining.lastIndexOf("(", index+1);
-                if(ind2 > 0 && remaining.charAt(index-1) != ')')
+                int index2 = remaining.indexOf("(");
+                if(index2 < index)
                 {
-                    index = remaining.indexOf(".",  index+1);
-                    if(index >= 0)
+                    String cmd = remaining.substring(0, index2);
+                    if(translation.containsKey(cmd))
+                    {
+                        int braceIndex = findClosingBrace(index2+1);
+                        token = remaining.substring(0, braceIndex).trim();
+                        remaining.delete(0, braceIndex+1);
+                    }
+                    else
                     {
                         token = remaining.substring(0, index).trim();
                         remaining.delete(0, index+1);
-                    }
-                    else if(remaining.length() > 0)
-                    {
-                        token = remaining.toString().trim();
-                        remaining.setLength(0);
                     }
                 }
                 else
@@ -996,12 +1028,38 @@ public class ReadablePattern
                     remaining.delete(0, index+1);
                 }
             }
+            else if((index = remaining.indexOf(".")) > 0)
+            {
+                token = remaining.substring(0, index).trim();
+                remaining.delete(0, index+1);
+            }
             else if(remaining.length() > 0)
             {
                 token = remaining.toString().trim();
                 remaining.setLength(0);
             }
             return token;
+        }
+
+        private int findClosingBrace(int i)
+        {
+            int openingCount = 1;
+            boolean escape = false;
+            while(i < remaining.length() && openingCount > 0)
+            {
+                char c = remaining.charAt(i);
+                if(c == '(' && escape == false)
+                {
+                    openingCount++;
+                }
+                if(c == ')' && escape == false)
+                {
+                    openingCount--;
+                }
+                escape = c == '\\';
+                i++;
+            }
+            return i;
         }
 
         /**
@@ -1115,7 +1173,7 @@ public class ReadablePattern
         langMappings.put("auswaehlenEnde", "captureEnd");
         Builder.addLanguage(langMappings);
         
-        ReadablePattern pat2 = ReadablePattern.compile("date()", false);
+        ReadablePattern pat2 = ReadablePattern.compile("addRegEx(' +\\d\\d\\.\\d\\d\\.(\\d\\d\\d\\d)')", false);
         Matcher matcher2 = pat2.matcher("Hallo Welt 31.12.2020\r\n");
         System.out.println(matcher2.find());
         System.out.println(pat2);
