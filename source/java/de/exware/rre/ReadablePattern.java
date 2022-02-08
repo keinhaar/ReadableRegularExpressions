@@ -56,6 +56,8 @@ public class ReadablePattern
         int flags = Pattern.MULTILINE;
         private static Map<String, String> translation = new HashMap<>();
         private boolean treatUnknownTokenAsRegex;
+        private ReadablePattern rpat = new ReadablePattern();
+        private List<ReadablePatternExtension> extensions;
         
         static
         {
@@ -102,15 +104,16 @@ public class ReadablePattern
          */
         public Builder(String readableRegExp)
         {
-            this(readableRegExp, false);
+            this(null, readableRegExp, false);
         }
         
         /**
          * Create a new Builder which parses the Expression from Text.
          * @param readableRegExp the textual representation of the expression.
          */
-        public Builder(String readableRegExp, boolean treatUnknownTokenAsRegex)
+        public Builder(List<ReadablePatternExtension> extensions, String readableRegExp, boolean treatUnknownTokenAsRegex)
         {
+            this.extensions = extensions;
             this.treatUnknownTokenAsRegex = treatUnknownTokenAsRegex;
             readableRegExp = readableRegExp.replaceAll("(?s)\\)[ \\r\\n\\t]+\\.", ")."); //replace whitespace between methods.
             remaining = new StringBuilder(readableRegExp);
@@ -277,7 +280,25 @@ public class ReadablePattern
             }
             else
             {
-                throw new IllegalArgumentException("Unknown token: " + token);
+                if(extensions == null)
+                {
+                    throw new IllegalArgumentException("Unknown token: " + token);
+                }
+                boolean found = false;
+                for(int x=0;x<extensions.size();x++)
+                {
+                    ReadablePatternExtension ext = extensions.get(x);
+                    if( token.startsWith(ext.getFunctionName()+"("))
+                    {
+                        found = true;
+                        ext.createRegEx(this);
+                        break;
+                    }
+                }
+                if(found == false)
+                {
+                    throw new IllegalArgumentException("Unknown token: " + token);
+                }
             }
         }
 
@@ -491,7 +512,7 @@ public class ReadablePattern
         public Builder date()
         {
             _appendRRE(".date()");
-            _add("(?:(?:\\s\\d{4}\\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9]\\s)|(?:\\s[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\\d{4}\\s)|(?:\\s[0-3]{0,1}[0-9]\\.[01]{0,1}[0-9]\\.\\d{4}\\s))");
+            _add("(?:(?:(?<=\\s)\\d{4}\\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\\d{4}(?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]\\.[01]{0,1}[0-9]\\.\\d{4}(?=\\s)))");
             return this;
         }
         
@@ -662,7 +683,7 @@ public class ReadablePattern
         public Builder whitespace()
         {
             _appendRRE(".whitespace()");
-            _add(DOT_CHARACTER);
+            _add(WHITESPACE_CHARACTER);
             return this;
         }
         
@@ -1068,7 +1089,6 @@ public class ReadablePattern
          */
         public ReadablePattern build()
         {
-            ReadablePattern rpat = new ReadablePattern();
             rpat.pattern = Pattern.compile(regex.toString(), flags);
             rpat.readableRegex = readableRegex.toString();
             return rpat;
@@ -1105,7 +1125,21 @@ public class ReadablePattern
      */
     public static ReadablePattern compile(String readableRegex, boolean treatUnknownTokenAsRegex)
     {
-        Builder builder = new Builder(readableRegex, treatUnknownTokenAsRegex);
+        Builder builder = new Builder(null, readableRegex, treatUnknownTokenAsRegex);
+        return builder.build();
+    }
+    
+    /**
+     * Create a ReadablePattern from Text representation.
+     * @param readableRegex Can contain all the public method calls that are valid on
+     * the Builder Object, except the builder() method. To make Expressions even easier, you 
+     * won't need to quote parameters in most cases. So add(ABC) would be the same as add('ABC') or 
+     * add("ABC").
+     * @return
+     */
+    public static ReadablePattern compile(List<ReadablePatternExtension> extensions, String readableRegex, boolean treatUnknownTokenAsRegex)
+    {
+        Builder builder = new Builder(extensions, readableRegex, treatUnknownTokenAsRegex);
         return builder.build();
     }
     
@@ -1156,6 +1190,13 @@ public class ReadablePattern
     public String toString()
     {
         return "ReadablePattern: " + readableRegex + " ; compiled:" + pattern.pattern();
+    }
+    
+    public interface ReadablePatternExtension
+    {
+        public String getFunctionName();
+        
+        public void createRegEx(Builder builder);
     }
     
     public static void main(String[] args)
