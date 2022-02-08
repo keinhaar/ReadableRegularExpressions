@@ -2,8 +2,9 @@
     <description>A generic base for build files.
    </description>
 
-    <property name="base_build.version" value="1.8.2" />
+    <property name="base_build.version" value="1.9.1" />
     <property file="ant.properties" />
+    <property file="../projectSettings/ant.properties" />
     <property name="izpackbasedir" value="${user.home}/IzPack" />
     <property name="make-jar-dir" value="${tmp.dir}/make-jar" />
 
@@ -406,8 +407,13 @@
     <target name="-base-update-site" depends="dist">
         <delete dir="update-site"/>
         <mkdir dir="update-site" />
-        <java classname="de.exware.update.SiteTool" fork="true" jvmargs="-version"/>
-        <java classname="de.exware.update.SiteTool" fork="true" args="${distribution.dir} update-site ${tmp.dir}">
+        <java classname="de.exware.update.SiteTool" fork="true">
+        	<jvmarg value="-version"/>
+        </java>
+        <java classname="de.exware.update.SiteTool" fork="true">
+        	<arg value="${distribution.dir}"/>
+        	<arg value="update-site"/>
+        	<arg value="${tmp.dir}"/>
             <classpath refid="compile.classpath">
             </classpath>
             <classpath path="out" />
@@ -457,7 +463,19 @@
             </fileset>
         </copy>
         <copy todir="out" failonerror="false" overwrite="true">
-            <fileset dir="${resource.dir}/${system-environment}">
+            <fileset dir="${resource.dir}/os-platform/${os-platform}">
+                <include name="**" />
+                <exclude name="**/.svn" />
+            </fileset>
+        </copy>
+        <copy todir="out" failonerror="false" overwrite="true">
+            <fileset dir="${resource.dir}/system-environment/${system-environment}">
+                <include name="**" />
+                <exclude name="**/.svn" />
+            </fileset>
+        </copy>
+        <copy todir="out" failonerror="false" overwrite="true">
+            <fileset dir="${resource.dir}/os_system/${os-platform}/${system-environment}">
                 <include name="**" />
                 <exclude name="**/.svn" />
             </fileset>
