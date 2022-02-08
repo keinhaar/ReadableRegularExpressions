@@ -47,7 +47,7 @@ alpha() | match an alpha character like a-z A-Z 0-9 and _ | \w
 anyCharacter() | matches any character | .
 capture() | start of a capturing group. must end with captureEnd(). | 
 captureEnd() | end of a capturing group. must be started with capture(). | 
-count(4) | how often must the previous element occur. Here 4 times | {4}
+count(4) | how often must the previous element occur. Here 4 times. If two numbers are given, then they are min and max number of occurences count(2,4) | {4}
 date() | matches a date in one of the formats dd.MM.yyyy, dd/MM/yyyy or yyyy-MM-dd if it is surrounded by whitespace | (?:(?:(?<=\s)\d{4}\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\d{4}(?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]\.[01]{0,1}[0-9]\.\d{4}(?=\s)))
 digit() | match a single digit | \d
 dot() | match a single dot | \.
@@ -60,7 +60,7 @@ notDigit() | match something that is NOT a digit | \D
 oneOf('aa','bb','cc') | One of the Elements should b matched | (?:(?:aa)|(?:bb)|(?:cc))
 oneOrMore() | The previous element must occur at least 1 time or unlimited times | +
 oneOrMoreShortest() | The previous element must occur at least 1 time or unlimited times, but it should be matched as short as possible | +?
-range(2,4) | how often must the previous element occur. Here min. 2 times, max 4 times | {2,4}
+range(a,f) | matches a range of characters. in this example a,b,c,d,e,f | [a-f]
 startOfLine() | matches the beginning of a line | ^
 tab() | match a single Tabulator character | \t
 whitespace() | match whitespace characters like ' ', tab and some others | \s
