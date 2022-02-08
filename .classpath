@@ -3,6 +3,7 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="src" path="source/java"/>
 	<classpathentry kind="src" path="de.exware.rre.test"/>
+	<classpathentry kind="src" path="resources/common"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/5"/>
 	<classpathentry kind="output" path="out"/>
 </classpath>

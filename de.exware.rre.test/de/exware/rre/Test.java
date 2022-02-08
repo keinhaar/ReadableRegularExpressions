@@ -37,7 +37,7 @@ public class Test
     {
         ReadablePattern pat = ReadablePattern.compile("oneOf('aa','bb','cc')", false);
         System.out.println(pat.toString());
-        Matcher matcher = pat.matcher("XXX BB YYY");
+        Matcher matcher = pat.matcher("XXX bb YYY");
         assertTrue(matcher.find());
         System.out.println(matcher.group());
         assertFalse(matcher.matches());
@@ -79,7 +79,7 @@ public class Test
             }
             
             @Override
-            public void createRegEx(Builder builder)
+            public void createRegEx(Builder builder, String param)
             {
                 builder.add("hello");
             }

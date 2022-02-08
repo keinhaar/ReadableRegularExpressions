@@ -163,6 +163,15 @@ public class ReadablePattern
                     token = ncommand + "(";
                 }
             }
+            for(int x=0;extensions != null && x<extensions.size();x++)
+            {
+                ReadablePatternExtension ext = extensions.get(x);
+                if( token.startsWith(ext.getFunctionName()+"("))
+                {
+                    ext.createRegEx(this, param);
+                    return;
+                }
+            }
             if(token.startsWith("add("))
             {
                 param = removeParagraph(param);
@@ -280,25 +289,7 @@ public class ReadablePattern
             }
             else
             {
-                if(extensions == null)
-                {
-                    throw new IllegalArgumentException("Unknown token: " + token);
-                }
-                boolean found = false;
-                for(int x=0;x<extensions.size();x++)
-                {
-                    ReadablePatternExtension ext = extensions.get(x);
-                    if( token.startsWith(ext.getFunctionName()+"("))
-                    {
-                        found = true;
-                        ext.createRegEx(this);
-                        break;
-                    }
-                }
-                if(found == false)
-                {
-                    throw new IllegalArgumentException("Unknown token: " + token);
-                }
+                throw new IllegalArgumentException("Unknown token: " + token);
             }
         }
 
@@ -317,7 +308,7 @@ public class ReadablePattern
          * @param param
          * @return
          */
-        private String removeParagraph(String param)
+        public static String removeParagraph(String param)
         {
             param = param.trim();
             if(param.startsWith("\"") && param.endsWith("\"")
@@ -1196,7 +1187,7 @@ public class ReadablePattern
     {
         public String getFunctionName();
         
-        public void createRegEx(Builder builder);
+        public void createRegEx(Builder builder, String param);
     }
     
     public static void main(String[] args)
