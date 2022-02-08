@@ -48,7 +48,7 @@ anyCharacter() | matches any character | .
 capture() | start of a capturing group. must end with captureEnd(). | 
 captureEnd() | end of a capturing group. must be started with capture(). | 
 count(4) | how often must the previous element occur. Here 4 times | {4}
-date() | matches a date in one of the formats dd.MM.yyyy, dd/MM/yyyy or yyyy-MM-dd if it is surrounded by whitespace | (?:(?:(?<=\s)\d{4}\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\s))|(?:(?<=\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\d{4}(?=\s))|(?:(?<=\s)[0-3]{0,1}[0-9]\.[01]{0,1}[0-9]\.\d{4}(?=\s)))
+date() | matches a date in one of the formats dd.MM.yyyy, dd/MM/yyyy or yyyy-MM-dd if it is surrounded by whitespace | (?:(?:(?<=\s)\d{4}\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\d{4}(?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]\.[01]{0,1}[0-9]\.\d{4}(?=\s)))
 digit() | match a single digit | \d
 dot() | match a single dot | \.
 endOfLine() | matches the end of line | $
@@ -78,6 +78,20 @@ In the example below, you can use 'datum()' as an alternative name for 'date()'
     ReadablePattern.Builder.addLanguage(properties);
 </pre>
 
+`var specificLanguage_code = 
+    {
+        "data": {
+            "lookedUpPlatform": 1,
+            "query": "Kasabian+Test+Transmission",
+            "lookedUpItem": {
+                "name": "Test Transmission",
+                "artist": "Kasabian",
+                "album": "Kasabian",
+                "picture": null,
+                "link": "http://open.spotify.com/track/5jhJur5n4fasblLSCOcrTp"
+            }
+        }
+    }`
 ## Extensions ##
 For special applications you may want some more abbreviations for your users. For this case an simple extension mechanism has been added. Each Extension consists of a name returned by getFunctionName(), and a method that builds the regular expression.
 <pre>
