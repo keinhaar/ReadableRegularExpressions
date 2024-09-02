@@ -30,6 +30,10 @@ public class Test
         assertTrue(matcher.find());
         System.out.println(matcher.group());
         assertFalse(matcher.matches());
+        matcher = pat.matcher("Hallo 13. Dec. 2014 \r\nABC");
+        assertTrue(matcher.find());
+        System.out.println(matcher.group());
+        assertFalse(matcher.matches());
     }
 
     @org.junit.Test

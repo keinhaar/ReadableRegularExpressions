@@ -496,14 +496,14 @@ public class ReadablePattern
         }
         
         /**
-         * Matches anything that looks like an Date. This may be written yyyy-mm-dd or dd.mm.yyyy or dd/mm/yyyy 
+         * Matches anything that looks like an Date. This may be written yyyy-mm-dd or dd.mm.yyyy or dd/mm/yyyy or 'dd. Jan. yyyy' 
          * and must be enclosed by whitespace characters. For example it will match ' 31/12/2020 ' but not ' 31/12/2020x'
          * @return
          */
         public Builder date()
         {
             _appendRRE(".date()");
-            _add("(?:(?:(?<=\\s)\\d{4}\\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\\d{4}(?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]\\.[01]{0,1}[0-9]\\.\\d{4}(?=\\s)))");
+            _add("(?:(?:(?<=\\s)\\d{4}\\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\\d{4}(?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]\\.[01]{0,1}[0-9]\\.\\d{4}(?=\\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]\\. (?:Jan|Feb|Mar|Apr|May|Mai|Jun|Jul|Aug|Sep|Oct|Okt|Nov|Dec|Dez){1}\\. \\d{4}(?=\\s)))");
             return this;
         }
         

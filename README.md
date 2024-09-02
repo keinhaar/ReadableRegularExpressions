@@ -48,7 +48,7 @@ anyCharacter() | matches any character | .
 capture() | start of a capturing group. must end with captureEnd(). | 
 captureEnd() | end of a capturing group. must be started with capture(). | 
 count(4) | how often must the previous element occur. Here 4 times. If two numbers are given, then they are min and max number of occurences count(2,4) | {4}
-date() | matches a date in one of the formats dd.MM.yyyy, dd/MM/yyyy or yyyy-MM-dd if it is surrounded by whitespace | (?:(?:(?<=\s)\d{4}\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\d{4}(?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]\.[01]{0,1}[0-9]\.\d{4}(?=\s)))
+date() | matches a date in one of the formats dd.MM.yyyy, dd/MM/yyyy or yyyy-MM-dd 'dd. MMM. yyyy' if it is surrounded by whitespace | (?:(?:(?<=\s)\d{4}\-[01]{0,1}[0-9]-[0-3]{0,1}[0-9](?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]/[01]{0,1}[0-9]/\d{4}(?=\s))\|(?:(?<=\s)[0-3]{0,1}[0-9]\.[01]{0,1}[0-9]\.\d{4}(?=\s))|(?:(?<=\\s)[0-3]{0,1}[0-9]\\. (?:Jan|Feb|Mar|Apr|May|Mai|Jun|Jul|Aug|Sep|Oct|Okt|Nov|Dec|Dez){1}\\. \\d{4}(?=\\s)))
 digit() | match a single digit | \d
 dot() | match a single dot | \.
 endOfLine() | matches the end of line | $
