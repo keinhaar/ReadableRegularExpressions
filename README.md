@@ -78,20 +78,6 @@ In the example below, you can use 'datum()' as an alternative name for 'date()'
     ReadablePattern.Builder.addLanguage(properties);
 </pre>
 
-`var specificLanguage_code = 
-    {
-        "data": {
-            "lookedUpPlatform": 1,
-            "query": "Kasabian+Test+Transmission",
-            "lookedUpItem": {
-                "name": "Test Transmission",
-                "artist": "Kasabian",
-                "album": "Kasabian",
-                "picture": null,
-                "link": "http://open.spotify.com/track/5jhJur5n4fasblLSCOcrTp"
-            }
-        }
-    }`
 ## Extensions ##
 For special applications you may want some more abbreviations for your users. For this case an simple extension mechanism has been added. Each Extension consists of a name returned by getFunctionName(), and a method that builds the regular expression.
 <pre>
